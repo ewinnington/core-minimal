@@ -22,32 +22,97 @@ namespace eric.coreminimal
             //DB Code assumes a table PROJECTS with 
             //ID - Integer
             //Name - Varchar or Text
+            //Data - Image (VarBinary) / BLOB / Bytea
             //Filled at least 1 entry with an ID 1 to test Dapper
 
             //Dapper (Dapper 1.50.0-rc3 pre-release) 
             //SQL Server (System.data.SqlClient)
             using (SqlConnection conn = new SqlConnection(@"Data Source=(localdb)\ProjectsV13;Initial Catalog=test;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;MultiSubnetFailover=False"))
             {
+                /* Create script for SQL Server
+                CREATE TABLE [dbo].[Projects] (
+                [Id]   INT             NOT NULL,
+                [Name] VARCHAR (50)    NOT NULL,
+                [Data] VARBINARY (MAX) NULL,
+                PRIMARY KEY CLUSTERED ([Id] ASC)
+                );
+                */
+
                 conn.Open();
-                RunQuery(conn);
+                RunSimpleSelectQuery(conn);
 
                 //Using SQL Server With Dapper - @ for binding 
                 string DapperQuery = "SELECT ID, NAME FROM PROJECTS WHERE ID = @Pk";
                 RunDapper(conn, DapperQuery);
 
+                byte[] data = new byte[100000];
+                data[0] = 0xff;
+                data[1] = 0x10;
+
                 //BLOB Testing
+                string blobinsert = "INSERT INTO PROJECTS (Id, Name, Data) VALUES (@Id, @Name, @Data)";
+                using (var binset = conn.CreateCommand())
+                {
+                    binset.CommandText = blobinsert;
+                    binset.Parameters.Add(new SqlParameter("@Id", 3));
+                    binset.Parameters.Add(new SqlParameter("@Name", "Inserted"));
+                    var p = binset.Parameters.Add(new SqlParameter("@Data", System.Data.SqlDbType.Image, data.Length));
+                    p.Value = data;
+                    binset.ExecuteNonQuery();
+                }
+                Console.WriteLine("Inserted");
+
+                string blobSelect = "SELECT Id, Name, Data FROM PROJECTS WHERE ID = 3";
+                ReadAndCheckBlob(conn, data, blobSelect);
+
+                string deletefrom = "DELETE FROM PROJECTS WHERE Id = 3";
+                ExecuteDirect(conn, deletefrom);
+                Console.WriteLine("-- Deleted BLOB");
             }
             //Postgres SQL (npgsql)
             using (NpgsqlConnection conn = new NpgsqlConnection("Server=localhost;Port=5432;Database=Test;User Id=postgres;Password = tspostgres; "))
             {
+                /* Create script for Postgresql
+                CREATE TABLE public."Projects"
+                (
+                    "Id" integer NOT NULL,
+                    "Name" text,
+                    "Data" bytea,
+                    CONSTRAINT "ProjectsPK" PRIMARY KEY ("Id")
+                )
+                */
+
                 conn.Open();
-                RunQuery(conn);
+                RunSimpleSelectQuery(conn);
 
                 //Using Postgres With Dapper - Quoted fields and : for binding
-                string DapperQuery = "SELECT \"ID\", \"Name\" FROM \"Projects\" WHERE \"ID\" = :Pk";
+                string DapperQuery = "SELECT \"Id\", \"Name\" FROM \"Projects\" WHERE \"Id\" = :Pk";
                 RunDapper(conn, DapperQuery);
 
                 //BLOB testing
+                byte[] data = new byte[100000];
+                data[0] = 0xff;
+                data[1] = 0x10;
+
+                //BLOB Testing
+                string blobinsert = "INSERT INTO \"Projects\" (\"Id\", \"Name\", \"Data\") VALUES (:Id, :Name, :Data)";
+                using (var binset = conn.CreateCommand())
+                {
+                    binset.CommandText = blobinsert;
+                    binset.Parameters.Add(new NpgsqlParameter(":Id", 3));
+                    binset.Parameters.Add(new NpgsqlParameter(":Name", "Inserted"));
+                    var p = binset.Parameters.Add(new NpgsqlParameter(":Data", NpgsqlTypes.NpgsqlDbType.Bytea, data.Length));
+                    p.Value = data;
+                    binset.ExecuteNonQuery();
+                }
+                Console.WriteLine("Inserted");
+
+                string blobSelect = "SELECT \"Id\", \"Name\", \"Data\" FROM \"Projects\" WHERE \"Id\" = 3";
+                ReadAndCheckBlob(conn, data, blobSelect);
+
+                string deletefrom = "DELETE FROM \"Projects\" WHERE \"Id\" = 3";
+                ExecuteDirect(conn, deletefrom);
+                Console.WriteLine("-- Deleted BLOB");
             }
             //SQLite
 
@@ -135,7 +200,37 @@ namespace eric.coreminimal
             throw new NotImplementedException();
         }
 
+        private static void ReadAndCheckBlob(DbConnection conn, byte[] data, string blobSelect)
+        {
+            using (var bSelect = conn.CreateCommand())
+            {
+                bSelect.CommandText = blobSelect;
+                using (var result = bSelect.ExecuteReader())
+                {
+                    while (result.Read())
+                    {
+                        if (result.HasRows)
+                        {
+                            var r = result.GetFieldValue<byte[]>(2);
+                            bool isIdentical = true;
+                            for (int i = 0; i < r.Length; i++)
+                                if (r[i] != data[i]) { isIdentical = false; break; }
 
+                            Console.WriteLine("Selected : Id " + result.GetInt32(0) + " Name" + result.GetString(1) + " Binary data identical : " + isIdentical.ToString());
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void ExecuteDirect(DbConnection conn, string sqlNonQuery)
+        {
+            using (var bdelete = conn.CreateCommand())
+            {
+                bdelete.CommandText = sqlNonQuery;
+                bdelete.ExecuteNonQuery();
+            }
+        }
 
         private static void RunDapper(DbConnection conn, string DapperQuery)
         {
@@ -144,7 +239,7 @@ namespace eric.coreminimal
             Console.WriteLine("-- Dapper done with " + conn.ToString());
         }
 
-        private static void RunQuery(DbConnection conn)
+        private static void RunSimpleSelectQuery(DbConnection conn)
         {
             Console.WriteLine(conn.ToString() + " " + conn.DataSource + " " + conn.Database + " " + conn.ServerVersion);
             using (DbCommand c = conn.CreateCommand())

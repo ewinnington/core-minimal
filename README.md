@@ -7,13 +7,14 @@ Minimal tests for .net core functionality. This is a tracer bullet project to ch
 - [ ] SQLite
 - [ ] Oracle
 
-To run the code, a local instance of the various DBs is required, with a table name "Projects" containing at least two fields "Id" as Numeric and "Name" as VarChar or Text. Change the connect strings as necessary. 
+To run the code, a local instance of the various DBs is required, with a table name "Projects" containing at least two fields "Id" as Numeric and "Name" as VarChar or Text. The create scripts are provided as comments in the code. Change the connect strings as necessary. 
 
 ##  [ ] Database functionality
 - [x] Dapper
-- [ ] Blob / Clob
+- [x] Blob / Clob
 
-To run dapper successfully and get output, the "Projects" table must contain an item with the Id 1. 
+To run dapper successfully and get output, the "Projects" table must contain an item with the Id 1.
+The blob tests require the Data field in the table.  
 
 ## [x] Redis
 
