@@ -9,11 +9,15 @@ using Dapper;
 using System.IO;
 using eric.coreminimal.data;
 using System.IO.Compression;
+using Microsoft.Extensions.DependencyModel;
+using Microsoft.DotNet.InternalAbstractions;
+using System.Reflection;
 
 namespace eric.coreminimal
 {
     public class Program 
     {
+        public static string DllPath = @"..\..\..\..\dynamic-artifacts\core-minimal-dynamic.dll";
         public static void Main(string[] args)
         {
             Console.WriteLine("Hello World from .net core!");
@@ -161,6 +165,8 @@ namespace eric.coreminimal
             DirectoryInfo di = (new FileInfo(s)).Directory;
             Console.WriteLine("URI: " + x + Environment.NewLine + "LocalPath: " + s + Environment.NewLine + "DirectoryFullName: " + di.FullName);
 
+            Program.DllPath = Path.Combine(di.FullName, Program.DllPath); 
+
             //Struct Binary I/O 
             //Unsafe
             string FileName = "demoBin.bin";
@@ -186,8 +192,44 @@ namespace eric.coreminimal
             }
             Console.WriteLine("-- Binary Compression");
 
-            //Dynamic DLL loading on Miss (opt from DB)
-            System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += Assembly_Resolve;
+            //Dynamic DLL loading on Miss (opt from DB) - Currently doesn't work
+            //System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += Assembly_Resolve;
+
+            try
+            {
+                //Works
+                /*
+                 //compiled into core-minimal-dynamic.dll
+                 
+                namespace eric.coreminimal.dynamic
+                {
+                    public class DemoDynamicClass
+                    {
+                        public int x { get; set; }
+
+                        public DemoDynamicClass()
+                        {
+                            x = 5; 
+                        }
+                    }
+                }
+
+                */
+                FileStream fs = File.OpenRead(Program.DllPath);
+                MemoryStream ms = new MemoryStream();
+                fs.CopyTo(ms);
+                ms.Position = 0; 
+                Assembly asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(ms);
+                var c = Type.GetType("eric.coreminimal.dynamic.DemoDynamicClass,core-minimal-dynamic");
+                dynamic d = Activator.CreateInstance(c);
+                Console.WriteLine(d.x); 
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            //Activator.CreateInstance("aaaa", "aaaaa");
+
 
             //Windows Workflow Foundation 
 
@@ -195,10 +237,34 @@ namespace eric.coreminimal
 
         }
 
-        private static System.Reflection.Assembly Assembly_Resolve(System.Runtime.Loader.AssemblyLoadContext arg1, System.Reflection.AssemblyName arg2)
+        /*private static System.Reflection.Assembly Assembly_Resolve(System.Runtime.Loader.AssemblyLoadContext loadContext, System.Reflection.AssemblyName TargetAssembly)
         {
-            throw new NotImplementedException();
-        }
+            if (TargetAssembly.Name == "core-minimal-dynamic")
+            {
+                FileStream fs = File.OpenRead(Program.DllPath);
+                MemoryStream ms = new MemoryStream();
+                fs.CopyTo(ms);
+                ms.Position = 0;
+                Assembly asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(ms);
+                return asm; 
+            }
+            /////////
+            //var runtimeId = RuntimeEnvironment.GetRuntimeIdentifier();
+            //var assemblies = DependencyContext.Default.GetRuntimeAssemblyNames(runtimeId);
+
+            //foreach (var assembly in assemblies)
+            //{
+            //    Console.WriteLine(assembly.FullName);
+            //    if (assembly.Name.Equals(TargetAssembly.Name))
+            //        return loadContext.LoadFromAssemblyName(assembly); //Maybe we don't need this anymore, we don't hit assembly_resolve for what we find?
+            //}
+            //using (FileStream fs = File.OpenRead(Program.DllPath)
+            //{
+            //    Assembly asm = loadContext.LoadFromStream(fs);
+            //    return asm; 
+            //}
+            return null; 
+        }*/
 
         private static void ReadAndCheckBlob(DbConnection conn, byte[] data, string blobSelect)
         {
