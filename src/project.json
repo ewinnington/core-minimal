@@ -7,7 +7,7 @@
   },
 
   "dependencies": {
-    "Dapper": "1.50.0-rc3",
+    "Dapper": "1.50.0",
     "Microsoft.DotNet.InternalAbstractions": "1.0.0",
     "Microsoft.Extensions.DependencyModel": "1.0.0",
     "Microsoft.NETCore.App": {
@@ -20,6 +20,7 @@
     "System.Collections": "4.0.11",
     "System.Data.SqlClient": "4.1.0",
     "System.IO.Compression": "4.1.0",
+    "System.Net.Http": "4.1.0",
     "System.Reflection": "4.1.0",
     "System.Runtime": "4.1.0",
     "System.Runtime.InteropServices": "4.1.0",

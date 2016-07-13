@@ -12,6 +12,7 @@ using System.IO.Compression;
 using Microsoft.Extensions.DependencyModel;
 using Microsoft.DotNet.InternalAbstractions;
 using System.Reflection;
+using System.Net.Sockets;
 
 namespace eric.coreminimal
 {
@@ -20,6 +21,15 @@ namespace eric.coreminimal
         public static string DllPath = @"..\..\..\..\dynamic-artifacts\core-minimal-dynamic.dll";
         public static void Main(string[] args)
         {
+            //List loaded assemblies 
+            var runtimeId = RuntimeEnvironment.GetRuntimeIdentifier();
+            var assemblies = DependencyContext.Default.GetRuntimeAssemblyNames(runtimeId);
+
+            /*foreach (var assembly in assemblies)
+            {
+                Console.WriteLine(assembly.FullName);
+            }*/
+
             Console.WriteLine("Hello World from .net core!");
             Console.WriteLine(RuntimeInformation.FrameworkDescription + " " + RuntimeInformation.OSArchitecture + " " + RuntimeInformation.OSDescription + " " + RuntimeInformation.ProcessArchitecture);
 
@@ -194,7 +204,6 @@ namespace eric.coreminimal
 
             //Dynamic DLL loading on Miss (opt from DB) - Currently doesn't work
             //System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += Assembly_Resolve;
-
             try
             {
                 //Works
@@ -218,23 +227,21 @@ namespace eric.coreminimal
                 FileStream fs = File.OpenRead(Program.DllPath);
                 MemoryStream ms = new MemoryStream();
                 fs.CopyTo(ms);
-                ms.Position = 0; 
+                ms.Position = 0;
                 Assembly asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(ms);
                 var c = Type.GetType("eric.coreminimal.dynamic.DemoDynamicClass,core-minimal-dynamic");
                 dynamic d = Activator.CreateInstance(c);
-                Console.WriteLine(d.x); 
+                Console.WriteLine(d.x);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
             }
-            //Activator.CreateInstance("aaaa", "aaaaa");
-
-
             //Windows Workflow Foundation 
 
 
-
+            //Simple network communication 
+            //var wl = new TcpListener(); 
         }
 
         /*private static System.Reflection.Assembly Assembly_Resolve(System.Runtime.Loader.AssemblyLoadContext loadContext, System.Reflection.AssemblyName TargetAssembly)
