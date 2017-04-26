@@ -16,9 +16,11 @@ using System.Net.Sockets;
 
 namespace eric.coreminimal
 {
-    public class Program 
+    public class Program
     {
-        public static string DllPath = @"..\..\..\..\dynamic-artifacts\core-minimal-dynamic.dll";
+        public static string DllPath = @"..\..\..\..\core-dynamic\bin\Debug\netstandard1.4\core-dynamic.dll";
+        public static bool TestDBs = false;
+
         public static void Main(string[] args)
         {
             //List loaded assemblies 
@@ -39,111 +41,114 @@ namespace eric.coreminimal
             //Data - Image (VarBinary) / BLOB / Bytea
             //Filled at least 1 entry with an ID 1 to test Dapper
 
+            
             //Dapper (Dapper 1.50.0-rc3 pre-release) 
             //SQL Server (System.data.SqlClient)
-            using (SqlConnection conn = new SqlConnection(@"Data Source=(localdb)\ProjectsV13;Initial Catalog=test;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;MultiSubnetFailover=False"))
+            if (TestDBs)
             {
-                /* Create script for SQL Server
-                CREATE TABLE [dbo].[Projects] (
-                [Id]   INT             NOT NULL,
-                [Name] VARCHAR (50)    NOT NULL,
-                [Data] VARBINARY (MAX) NULL,
-                PRIMARY KEY CLUSTERED ([Id] ASC)
-                );
-                */
-
-                conn.Open();
-                RunSimpleSelectQuery(conn);
-
-                //Using SQL Server With Dapper - @ for binding 
-                string DapperQuery = "SELECT ID, NAME FROM PROJECTS WHERE ID = @Pk";
-                RunDapper(conn, DapperQuery);
-
-                byte[] data = new byte[100000];
-                data[0] = 0xff;
-                data[1] = 0x10;
-
-                //BLOB Testing
-                string blobinsert = "INSERT INTO PROJECTS (Id, Name, Data) VALUES (@Id, @Name, @Data)";
-                using (var binset = conn.CreateCommand())
+                using (SqlConnection conn = new SqlConnection(@"Data Source=(localdb)\ProjectsV13;Initial Catalog=test;Integrated Security=True;Connect Timeout=30;Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadWrite;MultiSubnetFailover=False"))
                 {
-                    binset.CommandText = blobinsert;
-                    binset.Parameters.Add(new SqlParameter("@Id", 3));
-                    binset.Parameters.Add(new SqlParameter("@Name", "Inserted"));
-                    var p = binset.Parameters.Add(new SqlParameter("@Data", System.Data.SqlDbType.Image, data.Length));
-                    p.Value = data;
-                    binset.ExecuteNonQuery();
+                    /* Create script for SQL Server
+                    CREATE TABLE [dbo].[Projects] (
+                    [Id]   INT             NOT NULL,
+                    [Name] VARCHAR (50)    NOT NULL,
+                    [Data] VARBINARY (MAX) NULL,
+                    PRIMARY KEY CLUSTERED ([Id] ASC)
+                    );
+                    */
+
+                    conn.Open();
+                    RunSimpleSelectQuery(conn);
+
+                    //Using SQL Server With Dapper - @ for binding 
+                    string DapperQuery = "SELECT ID, NAME FROM PROJECTS WHERE ID = @Pk";
+                    RunDapper(conn, DapperQuery);
+
+                    byte[] data = new byte[100000];
+                    data[0] = 0xff;
+                    data[1] = 0x10;
+
+                    //BLOB Testing
+                    string blobinsert = "INSERT INTO PROJECTS (Id, Name, Data) VALUES (@Id, @Name, @Data)";
+                    using (var binset = conn.CreateCommand())
+                    {
+                        binset.CommandText = blobinsert;
+                        binset.Parameters.Add(new SqlParameter("@Id", 3));
+                        binset.Parameters.Add(new SqlParameter("@Name", "Inserted"));
+                        var p = binset.Parameters.Add(new SqlParameter("@Data", System.Data.SqlDbType.Image, data.Length));
+                        p.Value = data;
+                        binset.ExecuteNonQuery();
+                    }
+                    Console.WriteLine("Inserted");
+
+                    string blobSelect = "SELECT Id, Name, Data FROM PROJECTS WHERE ID = 3";
+                    ReadAndCheckBlob(conn, data, blobSelect);
+
+                    string deletefrom = "DELETE FROM PROJECTS WHERE Id = 3";
+                    ExecuteDirect(conn, deletefrom);
+                    Console.WriteLine("-- Deleted BLOB");
                 }
-                Console.WriteLine("Inserted");
-
-                string blobSelect = "SELECT Id, Name, Data FROM PROJECTS WHERE ID = 3";
-                ReadAndCheckBlob(conn, data, blobSelect);
-
-                string deletefrom = "DELETE FROM PROJECTS WHERE Id = 3";
-                ExecuteDirect(conn, deletefrom);
-                Console.WriteLine("-- Deleted BLOB");
-            }
-            //Postgres SQL (npgsql)
-            using (NpgsqlConnection conn = new NpgsqlConnection("Server=localhost;Port=5432;Database=Test;User Id=postgres;Password = tspostgres; "))
-            {
-                /* Create script for Postgresql
-                CREATE TABLE public."Projects"
-                (
-                    "Id" integer NOT NULL,
-                    "Name" text,
-                    "Data" bytea,
-                    CONSTRAINT "ProjectsPK" PRIMARY KEY ("Id")
-                )
-                */
-
-                conn.Open();
-                RunSimpleSelectQuery(conn);
-
-                //Using Postgres With Dapper - Quoted fields and : for binding
-                string DapperQuery = "SELECT \"Id\", \"Name\" FROM \"Projects\" WHERE \"Id\" = :Pk";
-                RunDapper(conn, DapperQuery);
-
-                //BLOB testing
-                byte[] data = new byte[100000];
-                data[0] = 0xff;
-                data[1] = 0x10;
-
-                //BLOB Testing
-                string blobinsert = "INSERT INTO \"Projects\" (\"Id\", \"Name\", \"Data\") VALUES (:Id, :Name, :Data)";
-                using (var binset = conn.CreateCommand())
+                //Postgres SQL (npgsql)
+                using (NpgsqlConnection conn = new NpgsqlConnection("Server=localhost;Port=5432;Database=Test;User Id=postgres;Password = tspostgres; "))
                 {
-                    binset.CommandText = blobinsert;
-                    binset.Parameters.Add(new NpgsqlParameter(":Id", 3));
-                    binset.Parameters.Add(new NpgsqlParameter(":Name", "Inserted"));
-                    var p = binset.Parameters.Add(new NpgsqlParameter(":Data", NpgsqlTypes.NpgsqlDbType.Bytea, data.Length));
-                    p.Value = data;
-                    binset.ExecuteNonQuery();
+                    /* Create script for Postgresql
+                    CREATE TABLE public."Projects"
+                    (
+                        "Id" integer NOT NULL,
+                        "Name" text,
+                        "Data" bytea,
+                        CONSTRAINT "ProjectsPK" PRIMARY KEY ("Id")
+                    )
+                    */
+
+                    conn.Open();
+                    RunSimpleSelectQuery(conn);
+
+                    //Using Postgres With Dapper - Quoted fields and : for binding
+                    string DapperQuery = "SELECT \"Id\", \"Name\" FROM \"Projects\" WHERE \"Id\" = :Pk";
+                    RunDapper(conn, DapperQuery);
+
+                    //BLOB testing
+                    byte[] data = new byte[100000];
+                    data[0] = 0xff;
+                    data[1] = 0x10;
+
+                    //BLOB Testing
+                    string blobinsert = "INSERT INTO \"Projects\" (\"Id\", \"Name\", \"Data\") VALUES (:Id, :Name, :Data)";
+                    using (var binset = conn.CreateCommand())
+                    {
+                        binset.CommandText = blobinsert;
+                        binset.Parameters.Add(new NpgsqlParameter(":Id", 3));
+                        binset.Parameters.Add(new NpgsqlParameter(":Name", "Inserted"));
+                        var p = binset.Parameters.Add(new NpgsqlParameter(":Data", NpgsqlTypes.NpgsqlDbType.Bytea, data.Length));
+                        p.Value = data;
+                        binset.ExecuteNonQuery();
+                    }
+                    Console.WriteLine("Inserted");
+
+                    string blobSelect = "SELECT \"Id\", \"Name\", \"Data\" FROM \"Projects\" WHERE \"Id\" = 3";
+                    ReadAndCheckBlob(conn, data, blobSelect);
+
+                    string deletefrom = "DELETE FROM \"Projects\" WHERE \"Id\" = 3";
+                    ExecuteDirect(conn, deletefrom);
+                    Console.WriteLine("-- Deleted BLOB");
                 }
-                Console.WriteLine("Inserted");
+                //SQLite
 
-                string blobSelect = "SELECT \"Id\", \"Name\", \"Data\" FROM \"Projects\" WHERE \"Id\" = 3";
-                ReadAndCheckBlob(conn, data, blobSelect);
+                //Oracle (When .net core support is there)
 
-                string deletefrom = "DELETE FROM \"Projects\" WHERE \"Id\" = 3";
-                ExecuteDirect(conn, deletefrom);
-                Console.WriteLine("-- Deleted BLOB");
+                //Redis (Ngonzalez.StackExchange.Redis)
+                Console.WriteLine("Redis - Connecting ...");
+                var cm = ConnectionMultiplexer.Connect("localhost");
+                IDatabase db = cm.GetDatabase();
+                db.StringSet("NetCoreString", "Basic String from .net core");
+                db.StringIncrement("NetCoreCount");
+                Console.WriteLine("Redis - Setters done");
+                Console.WriteLine("NetCoreString -> " + db.StringGet("NetCoreString"));
+                Console.WriteLine("NetCoreCount -> " + db.StringGet("NetCoreCount"));
+                Console.WriteLine("Redis - Getters done");
+                Console.WriteLine("--");
             }
-            //SQLite
-
-            //Oracle (When .net core support is there)
-
-            //Redis (Ngonzalez.StackExchange.Redis)
-            Console.WriteLine("Redis - Connecting ...");
-            var cm = ConnectionMultiplexer.Connect("localhost");
-            IDatabase db = cm.GetDatabase();
-            db.StringSet("NetCoreString", "Basic String from .net core");
-            db.StringIncrement("NetCoreCount");
-            Console.WriteLine("Redis - Setters done");
-            Console.WriteLine("NetCoreString -> " + db.StringGet("NetCoreString"));
-            Console.WriteLine("NetCoreCount -> " + db.StringGet("NetCoreCount"));
-            Console.WriteLine("Redis - Getters done");
-            Console.WriteLine("--");
-
             //JSON.NET newtonsoft (Newtonsoft.Json)
             Console.WriteLine("JSON Newtonsoft");
             List<TimeWithData> list = new List<TimeWithData>();
@@ -175,7 +180,7 @@ namespace eric.coreminimal
             DirectoryInfo di = (new FileInfo(s)).Directory;
             Console.WriteLine("URI: " + x + Environment.NewLine + "LocalPath: " + s + Environment.NewLine + "DirectoryFullName: " + di.FullName);
 
-            Program.DllPath = Path.Combine(di.FullName, Program.DllPath); 
+            Program.DllPath = Path.Combine(di.FullName, Program.DllPath);
 
             //Struct Binary I/O 
             //Unsafe
@@ -184,7 +189,7 @@ namespace eric.coreminimal
             BinaryFortranInterchange.ToBinary(di.FullName, FileName, 5);
             BinaryFortranInterchange.FromBinary(di.FullName, FileName, 5);
             Console.WriteLine("-- Binary IO");
-            
+
             //Compression
             FileInfo fi = new FileInfo(Path.Combine(di.FullName, FileName));
             using (MemoryStream Compressed = new MemoryStream())
@@ -229,7 +234,7 @@ namespace eric.coreminimal
                 fs.CopyTo(ms);
                 ms.Position = 0;
                 Assembly asm = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromStream(ms);
-                var c = Type.GetType("eric.coreminimal.dynamic.DemoDynamicClass,core-minimal-dynamic");
+                var c = Type.GetType("eric.coreminimal.dynamic.DemoDynamicClass,core-dynamic");
                 dynamic d = Activator.CreateInstance(c);
                 Console.WriteLine(d.x);
             }
@@ -327,7 +332,7 @@ namespace eric.coreminimal
                     }
                 }
             }
-            Console.WriteLine("--"); 
+            Console.WriteLine("--");
         }
     }
 }
