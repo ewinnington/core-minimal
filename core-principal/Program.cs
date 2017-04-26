@@ -13,6 +13,9 @@ using Microsoft.Extensions.DependencyModel;
 using Microsoft.DotNet.InternalAbstractions;
 using System.Reflection;
 using System.Net.Sockets;
+using Microsoft.CoreWf.Statements;
+using Microsoft.CoreWf;
+using eric.coreminimal.wf;
 
 namespace eric.coreminimal
 {
@@ -243,6 +246,37 @@ namespace eric.coreminimal
                 Console.WriteLine(ex.ToString());
             }
             //Windows Workflow Foundation 
+            //Windows Workflow Foundation 
+            Console.WriteLine("----------------------- Workflow foundation Invoker -------------------");
+            var workflow1 = new Sequence() { DisplayName = "Hello World Sequence" };
+            workflow1.Activities.Add(new WriteLine() { Text = "Hello World!", DisplayName = "Display greeting" });
+            WorkflowInvoker.Invoke(workflow1);
+
+            Console.WriteLine("----------------------- Workflow foundation WFApplication with tracking -------------------");
+            var workflow2 = new Sequence() { DisplayName = "Hello World Sequence" };
+
+            Variable<string> MailTo = new Variable<string> { Default = "test@example.com" };
+            Variable<string> MailSubject = new Variable<string> { Default = "Test email" };
+            Variable<string> MailBody = new Variable<string> { Default = "Mail Body Details" };
+            workflow2.Variables.Add(MailTo);
+            workflow2.Variables.Add(MailSubject);
+            workflow2.Variables.Add( MailBody ); 
+            workflow2.Activities.Add(new WriteLine() { Text = "Hello World!", DisplayName = "Display greeting" });
+            workflow2.Activities.Add(new FakeSendEmail()
+            {
+                To = new InArgument<string>(MailTo),
+                Body = new InArgument<string>(MailSubject),
+                Subject = new InArgument<string>(MailBody),
+                UseSSL = new InArgument<bool>(false)
+            });
+
+            Dictionary<string, object> WorkflowArguments = new Dictionary<string, object>();
+            /*WorkflowArguments.Add("MailTo", "test@example.com");
+            WorkflowArguments.Add("MailSubject", "Test email");
+            WorkflowArguments.Add("MailBody", "Mail Body Details");*/
+            WorkflowAppRunner wfApp = new WorkflowAppRunner();
+
+            wfApp.ExecuteWorkflowHost(Guid.NewGuid(), 100, workflow2, WorkflowArguments);
 
 
             //Simple network communication 
